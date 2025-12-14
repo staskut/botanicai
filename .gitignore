@@ -1,0 +1,6 @@
+.env.local
+condaenv.*
+__pycache__
+.sesskey
+*.jpg
+.DS_Store
