@@ -1,122 +1,137 @@
 import os
-import requests
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from fasthtml.common import *
-import dotenv
+import json
+import pandas as pd
+import gradio as gr
+from image_to_vector.inference_bioclip import predict_species
+from text.qwen import ask_botanist
 
-dotenv.load_dotenv(".env.local")
+# --- GLOBALS & DATA LOADING ---
+# Load taxa lookup mapping globally for O(1) performance
+base_dir = os.path.dirname(os.path.abspath(__file__))
+taxa_path = os.path.join(base_dir, 'data/taxa.parquet')
 
-app, rt = fast_app()
-
-API_KEY = os.environ.get("PLANTNET_API_KEY")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-API_URL = "https://my-api.plantnet.org/v2/identify/all"
-
-# Initialize LangChain model
-gemini_model = None
-if GEMINI_API_KEY:
-    gemini_model = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=GEMINI_API_KEY)
-
-@rt('/')
-def get():
-    return Titled("Plant Species Identifier",
-        Container(
-            P("Upload a photo of a plant to find out what it is!"),
-            Form(
-                Label("Select Image:", Input(type="file", name="image", accept="image/*", required=True)),
-                Button("Identify Plant", type="submit"),
-                action="/identify", method="post", enctype="multipart/form-data"
-            )
-        )
-    )
-
-@rt('/identify')
-async def post(image: UploadFile):
-    if not API_KEY:
-        return Titled("Error", P("PLANTNET_API_KEY environment variable is not set."))
-
-    content = await image.read()
-    if not content:
-        return Titled("Error", P("Uploaded file is empty."))
+try:
+    taxa_df = pd.read_parquet(taxa_path)
+    # Determine the column to use as the unique label identifier
+    label_col = 'species'
     
-    # helper to pass multiple files/organs if needed, but here simple 1-1
-    files = [
-        ('images', (image.filename, content, image.content_type))
-    ]
-    data = {
-        'organs': 'auto'
-    }
-    params = {
-        'api-key': API_KEY,
-        'include-related-images': 'false',
-        'lang': 'en'
-    }
+    # Create lookup dict: map label to 'genus' and 'family'
+    TAXA_MAP = taxa_df.drop_duplicates(subset=[label_col]).set_index(label_col)[['genus', 'family']].to_dict('index')
+    print(f"Successfully loaded taxa lookup with {len(TAXA_MAP)} entries.")
+
+except Exception as e:
+    print(f"Warning: Could not load data/taxa.parquet. Lookups will default to 'Unknown'.\n{e}")
+    TAXA_MAP = {}
+
+
+def process_plant(image):
+    """
+    Gradio interface core handler that processes plant images.
+    """
+    if image is None:
+        return "Please upload an image.", None
 
     try:
-        response = requests.post(API_URL, files=files, data=data, params=params)
-        response.raise_for_status()
-        results = response.json()
-    except requests.exceptions.RequestException as e:
-        error_msg = f"API Request failed: {str(e)}"
-        if response is not None:
-             try:
-                 error_msg += f"\nDetails: {response.text}"
-             except:
-                 pass
-        return Titled("Error", Pre(error_msg))
-
-    # Parse results
-    predictions = results.get('results', [])
-    if not predictions:
-        return Titled("No Results", P("No matching species found."))
-
-    # Create list of cards for predictions
-    cards = []
-    best_match = None
-    
-    for i, pred in enumerate(predictions[:3]): # Top 3
-        species = pred.get('species', {})
-        score = pred.get('score', 0)
-        common_names = species.get('commonNames', [])
-        scientific_name = species.get('scientificNameWithoutAuthor', 'Unknown')
+        # Run inference pipeline
+        response = predict_species(image)
         
-        if i == 0:
-            best_match = {
-                "scientific_name": scientific_name,
-                "common_name": common_names[0] if common_names else scientific_name
-            }
-
-        card = Card(
-            H3(f"{scientific_name} ({score:.1%})"),
-            P(f"Common Names: {', '.join(common_names) if common_names else 'N/A'}")
+        # response contains: 'top-3', 'top-1_confidence', 'top-3_confidence', 'genus_confidence', 'family_confidence'
+        top_species = response.get("top-3", ["Unknown"])[0]
+        
+        # Look up taxonomic hierarchy based on the highest-confidence predicted species
+        ranks = TAXA_MAP.get(top_species, {})
+        genus = ranks.get('genus', 'Unknown')
+        family = ranks.get('family', 'Unknown')
+        
+        # Format markdown text readout
+        prediction_text = (
+             f"**Identified Species:** {top_species}\n\n"
+             f"**Genus:** {genus}\n\n"
+             f"**Family:** {family}\n"
         )
-        cards.append(card)
-
-    # Gemini Description (via LangChain)
-    description_section = []
-    if gemini_model and best_match:
+        
+        # Generate facts using Qwen LLM
         try:
-            prompt = ChatPromptTemplate.from_template(
-                "Identify this plant: {scientific_name} ({common_name}). Provide a fun, short description and care tips. Keep it under 200 words."
-            )
-            chain = prompt | gemini_model | StrOutputParser()
-            description_text = chain.invoke(best_match)
+            botanist_response = ask_botanist(top_species, genus, family)
             
-            description_section = [
-                H2("AI Description & Care Tips"),
-                Div(description_text, cls="description-box")
-            ]
-        except Exception as e:
-            description_section = [P(f"Could not generate description: {str(e)}")]
+            # Try to safely parse the JSON array if the LLM outputted it perfectly
+            try:
+                import ast
+                # Clean up potential markdown wrapper from LLM
+                cleaned = botanist_response.strip()
+                if cleaned.startswith("```json"):
+                    cleaned = cleaned[7:].rstrip("`").strip()
+                elif cleaned.startswith("```"):
+                    cleaned = cleaned[3:].rstrip("`").strip()
 
-    return Titled("Identification Results",
-        H2(f"Results for {image.filename}"),
-        *description_section,
-        H2("Top Matches"),
-        *cards,
-        A("Try Another", href="/")
+                try:
+                    facts_list = json.loads(cleaned)
+                except json.JSONDecodeError:
+                    facts_list = ast.literal_eval(cleaned)
+
+                if isinstance(facts_list, list) and len(facts_list) > 0 and isinstance(facts_list[0], dict):
+                    blocks = []
+                    for i, item in enumerate(facts_list):
+                        quote = item.get("quote", "").strip()
+                        fact = item.get("fact", "").strip()
+                        
+                        block = f"#### 🌿 Fact {i+1}\n"
+                        if quote:
+                            block += f"> *\"{quote}\"*\n>\n"
+                        block += f"> {fact}\n"
+                        blocks.append(block)
+                        
+                    facts_text = "\n<br>\n\n".join(blocks)
+                elif isinstance(facts_list, list):
+                    facts_text = "\n".join([f"- {fact}" for fact in facts_list])
+                else:
+                    facts_text = botanist_response
+            except Exception:
+                # If it's not proper JSON, just output the raw text the LLM returned
+                facts_text = botanist_response
+                
+        except Exception as e:
+            facts_text = f"*Botanist is currently unavailable: {str(e)}*"
+            
+        final_output = f"{prediction_text}\n### Botanist's Facts:\n{facts_text}"
+        
+        # Create dictionary for gr.Label (Gradio normalizes floats to 0%-100% bars if they are 0.0 - 1.0)
+        confidences = {
+            f"Species: {top_species}": float(response.get('top-1_confidence', 0.0)),
+            f"One of: {response.get('top-3')}": float(response.get('top-3_confidence', 0.0)),
+            f"Genus: {genus}": float(response.get('genus_confidence', 0.0)),
+            f"Family: {family}": float(response.get('family_confidence', 0.0)),
+        }
+        
+        return final_output, confidences
+
+    except Exception as e:
+        return f"Error during identification: {str(e)}", None
+
+
+# --- GR.BLOCKS UI LAYOUT ---
+with gr.Blocks(title="BotanicAI - Plant Identifier") as demo:
+    gr.Markdown("# 🌿 BotanicAI - Plant Identifier")
+    gr.Markdown(
+        "Upload a photo of a plant to identify its species, view confidence metrics, and learn amazing facts about it."
     )
 
-serve()
+    with gr.Row():
+        # Input column
+        with gr.Column(scale=1):
+            image_input = gr.Image(type="pil", label="Upload Plant Image")
+            submit_btn = gr.Button("Identify Plant", variant="primary")
+            
+        # Output column
+        with gr.Column(scale=2):
+            text_output = gr.Markdown(label="Identification & Facts")
+            confidences_output = gr.Label(label="Confidences", num_top_classes=4)
+
+    submit_btn.click(
+        fn=process_plant,
+        inputs=image_input,
+        outputs=[text_output, confidences_output]
+    )
+
+if __name__ == "__main__":
+    demo.launch()
