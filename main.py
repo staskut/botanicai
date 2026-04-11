@@ -10,6 +10,18 @@ from text.qwen import ask_botanist
 base_dir = os.path.dirname(os.path.abspath(__file__))
 taxa_path = os.path.join(base_dir, 'data/taxa.parquet')
 
+VERIFICATION_WHITELIST = """a photo of a plant
+a photo of a plant organ
+a photo of a fruit
+a photo of a seed
+a photo of a bud
+a photo of a flower
+a photo of an inflorescence
+a photo of a leaf
+# a photo of bark
+# a photo of a dried plant
+a photo of a plant part""".split("\n")
+
 try:
     taxa_df = pd.read_parquet(taxa_path)
     # Determine the column to use as the unique label identifier
@@ -44,7 +56,13 @@ def process_plant(image):
         family = ranks.get('family', 'Unknown')
         
         # Format markdown text readout
-        prediction_text = (
+        prediction_text = ""
+        verif_label = response.get("verification_label")
+        print(f"Verification label: {verif_label}")
+        if verif_label not in VERIFICATION_WHITELIST:
+            prediction_text += f"> ⚠️ **WARNING: Bad Photo Detected.** The botanical results below are likely incorrect.\n\n"
+
+        prediction_text += (
              f"**Identified Species:** {top_species}\n\n"
              f"**Genus:** {genus}\n\n"
              f"**Family:** {family}\n"

@@ -17,6 +17,8 @@ _tokenizer = None
 _transform = None
 _species_text_index = None
 _labels_map = None
+_verification_index = None
+_verification_labels_map = None
 
 
 def get_model():
@@ -54,6 +56,28 @@ def get_text_embeddings_and_labels_map(version_name):
     return _species_text_index, _labels_map
 
 
+def get_verification_embeddings_and_labels_map(version_name="verification"):
+    global _verification_index, _verification_labels_map
+    if _verification_index is not None:
+        return _verification_index, _verification_labels_map
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.abspath(os.path.join(base_dir, '../data'))
+    
+    index_path = os.path.join(data_dir, f'{version_name}.index')
+    labels_path = os.path.join(data_dir, f'{version_name}_labels.json')
+
+    if not (os.path.exists(index_path) and os.path.exists(labels_path)):
+        return None, None
+
+    print(f"Loading pre-computed verification features from FAISS ({version_name})...")
+    with open(labels_path, 'r') as f:
+        _verification_labels_map = json.load(f)
+
+    _verification_index = faiss.read_index(index_path)
+    return _verification_index, _verification_labels_map
+
+
 def predict_species(image, version_name="bioclip2_text_v2"):
     """
     Predicts the species family, genus, and species name for a given PIL Image.
@@ -61,6 +85,7 @@ def predict_species(image, version_name="bioclip2_text_v2"):
     """
     model, _, transform = get_model()
     species_features, unique_labels = get_text_embeddings_and_labels_map(version_name)
+    verif_index, verif_labels = get_verification_embeddings_and_labels_map("verification")
 
     image_input = transform(image).unsqueeze(0).to(DEVICE)
 
@@ -79,7 +104,13 @@ def predict_species(image, version_name="bioclip2_text_v2"):
         "top-3_confidence": top_3_conf,
         "genus_confidence": genus_conf,
         "family_confidence": family_conf,
+        "verification_label": None
     }
+    
+    if verif_index is not None and verif_labels is not None:
+        v_scores, v_indices = verif_index.search(image_features_np, k=1)
+        response["verification_label"] = verif_labels[v_indices[0, 0]]
+        
     return response
 
 
