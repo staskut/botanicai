@@ -97,14 +97,15 @@ def predict_species(image, version_name="bioclip2_text_v2"):
     scores, indices = _species_text_index.search(image_features_np, k=4)
     abs_diff_1 = scores[0, 0] - scores[0, 1]
     abs_diff_3 = scores[0, 2] - scores[0, 3]
-    top_1_conf, top_3_conf, genus_conf, family_conf = _estimate_confidence(abs_diff_1, abs_diff_3)
+    top_1_conf, top_3_conf, genus_conf, family_conf, top_1_in_top_60 = _estimate_confidence(abs_diff_1, abs_diff_3)
     response = {
         "top-3": [unique_labels[indices[0, 0]], unique_labels[indices[0, 1]], unique_labels[indices[0, 2]]],
         "top-1_confidence": top_1_conf,
         "top-3_confidence": top_3_conf,
         "genus_confidence": genus_conf,
         "family_confidence": family_conf,
-        "verification_label": None
+        "verification_label": None,
+        "top_1_in_top_60": top_1_in_top_60
     }
     
     if verif_index is not None and verif_labels is not None:
@@ -122,7 +123,8 @@ def _estimate_confidence(abs_diff_1, abs_diff_3):
     genus_conf = top_1_table[top_1_mask]["genus_match"].iloc[0]
     family_conf = top_1_table[top_1_mask]["family_match"].iloc[0]
     top_3_conf = top_3_table[(top_3_table["diff_from"]<abs_diff_3) & (top_3_table["diff_to"]>abs_diff_3)]["species_match_top-3"].iloc[0]
-    return top_1_conf, top_3_conf, genus_conf, family_conf
+    top_1_in_top_60 = top_1_conf >= top_1_table[top_1_table["diff_decile"]>4]["species_match"].min()
+    return top_1_conf, top_3_conf, genus_conf, family_conf, top_1_in_top_60
 
 
 if __name__ == "__main__":

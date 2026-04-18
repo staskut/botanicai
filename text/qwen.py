@@ -27,24 +27,24 @@ def retrieve_context(species_name, genus_name, family_name):
     cursor = conn.cursor()
 
     # 1. Try to find the Species
-    cursor.execute("SELECT full_text FROM plant_info WHERE name = ?", (species_name,))
+    cursor.execute("SELECT full_text, url FROM plant_info WHERE name = ?", (species_name,))
     result = cursor.fetchone()
     if result:
-        return f"Specific info for {species_name}: {result[0]}"
+        return f"Specific info for {species_name}: {result[0]}", result[1], "Species"
 
     # 2. Fallback to Genus
-    cursor.execute("SELECT full_text FROM plant_info WHERE name = ?", (genus_name,))
+    cursor.execute("SELECT full_text, url FROM plant_info WHERE name = ?", (genus_name,))
     result = cursor.fetchone()
     if result:
-        return f"Info for the genus {genus_name} (details for {species_name} are limited): {result[0]}"
+        return f"Info for the genus {genus_name} (details for {species_name} are limited): {result[0]}", result[1], "Genus"
 
     # 3. Fallback to Family
-    cursor.execute("SELECT full_text FROM plant_info WHERE name = ?", (family_name,))
+    cursor.execute("SELECT full_text, url FROM plant_info WHERE name = ?", (family_name,))
     result = cursor.fetchone()
     if result:
-        return f"General info for the {family_name} family (details for {species_name} are limited): {result[0]}"
+        return f"General info for the {family_name} family (details for {species_name} are limited): {result[0]}", result[1], "Family"
 
-    return "No local data found."
+    return "No local data found.", None, "None"
 
 # Load model globally to avoid reloading on every request
 # Path to Qwen (you can use "Qwen/Qwen2.5-1.5B-Instruct" directly with load())
@@ -55,7 +55,7 @@ except Exception as e:
     model, tokenizer = None, None
 
 
-def ask_botanist(species, genus, family):
+def ask_botanist(species, genus, family, audience="Pupil"):
     """
     Acts as a Retrieval-Augmented Generation (RAG) interface to query a local Qwen LLM.
 
@@ -74,34 +74,26 @@ def ask_botanist(species, genus, family):
              if the model fails to load.
     """
     if model is None:
-        return "Qwen model is not loaded."
+        return "Qwen model is not loaded.", None, "None"
 
     # Get data from our local RAG system
-    context = retrieve_context(species, genus, family)
+    context, source_url, match_level = retrieve_context(species, genus, family)
+    
+    if audience == "Pupil":
+        sys_msg = "You are a botanical expert that works with pupils."
+        user_msg = f"Extract 3 or less bullet-point facts about {species} from this text that will be particularly interesting to your young audience.\nMind of what your young audience knows and what they don't. Keep the language simple and engaging. \n"
+    else:
+        sys_msg = "You are a botanical expert that works with university students."
+        user_msg = f"Extract 3 or less bullet-point facts about {species} from this text that will be particularly interesting to university students. You want to share very complex and scientific information.\n"
 
-#     prompt = f"""<|im_start|>system
-# You are a botanical expert. Output ONLY valid JSON array of strings.<|im_end|>
-# <|im_start|>user
-# Extract 3 amazing facts about {species} from this text.
-# Rules:
-# 1. Use only the provided context.
-# 2. Focus on culture, history, or unique biology.
-# 3. Total facts must be under 60 words.
-# 4. Output format: ["fact 1", "fact 2", "fact 3"]
-# 5. Use single quotes for strings.
-#
-# Context: {context}<|im_end|>
-# <|im_start|>assistant
-# """
     messages = [
         {
             "role": "system",
-            "content": "You are a botanical expert that works with pupils."
+            "content": sys_msg
         },
         {
             "role": "user",
-            "content": f"Extract 3 or less bullet-point facts about {species} from this text that will be particularly interesting to your audience.\n"
-                       f"Mind of what your audience knows and what they don't. You want to provide them with new information, but you also want to make sure they understand it. \n"
+            "content": user_msg +
                        f"Rules:\n"
                        f"1. Use only the provided context. For each fact provide a quote from source. NEVER include information that can not be directly proven from the source\n"
                        f"2. If there are not enough information for 3 facts, reduce the quantity but do not compromise quality.\n"
@@ -128,7 +120,7 @@ def ask_botanist(species, genus, family):
         max_tokens=5120,
     )
     # response = generate(model, tokenizer, prompt=prompt, max_tokens=300)
-    return response
+    return response, source_url, match_level
 
 # Example Usage:
 if __name__ == '__main__':
