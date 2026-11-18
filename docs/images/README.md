@@ -1,5 +1,10 @@
 # Images for the README
 
+> **Note:** `interface.png` and `example.png` are currently **temporary
+> low-resolution captures** taken from the thesis slides as placeholders.
+> Replace them with full-resolution exports (and ideally real app
+> screenshots) when you can.
+
 The README references two images. Export them from the thesis
 presentation (full resolution) and save them here with these exact names.
 Export a slide via **File → Download → PNG image** in Google Slides, then
