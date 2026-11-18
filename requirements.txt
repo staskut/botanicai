@@ -1,0 +1,21 @@
+# Core app
+gradio
+
+# Image identification (BioCLIP 2)
+torch
+open_clip_torch
+faiss-cpu
+
+# Fact generation (Qwen3.5-2B via MLX, Apple Silicon)
+mlx-lm
+
+# Data / retrieval
+pandas
+pyarrow
+numpy
+scipy
+Pillow
+tqdm
+
+# Knowledge base ingestion
+wikipedia-api

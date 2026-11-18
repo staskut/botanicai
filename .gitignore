@@ -4,3 +4,7 @@ __pycache__
 .sesskey
 *.jpg
 .DS_Store
+
+# Keep documentation images (screenshots, demo, plant photos) regardless of extension
+!docs/images/
+!docs/images/**
