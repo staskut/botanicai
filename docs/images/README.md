@@ -1,34 +1,32 @@
 # Images for the README
 
-> **Note:** `interface.png` and `example.png` are currently **temporary
-> low-resolution captures** taken from the thesis slides as placeholders.
-> Replace them with full-resolution exports (and ideally real app
-> screenshots) when you can.
+Real app screenshots used by the main README.
 
-The README references two images. Export them from the thesis
-presentation (full resolution) and save them here with these exact names.
-Export a slide via **File → Download → PNG image** in Google Slides, then
-crop to the English app UI if you want to drop the Ukrainian slide title.
+| File                     | Shows                                                              |
+| ------------------------ | ----------------------------------------------------------------- |
+| `interface.png`          | Full app: upload + species/genus/family confidence bars.          |
+| `confidence-species.png` | A confident identification shown as a single top-1 species.       |
+| `confidence-top3.png`    | An ambiguous case shown as a top-3 "one of" candidate list.       |
+| `plant-check.png`        | The "bad photo" warning when the image is not a plant.            |
+| `pupil.png`              | The Pupil facts tab with "View Source Quote" panels and a link.   |
+| `student.png`            | The Student facts tab with "View Source Quote" panels and a link. |
 
-| File             | Source slide                                   | What it should show                                           |
-| ---------------- | ---------------------------------------------- | ------------------------------------------------------------- |
-| `interface.png`  | "Інтерфейс та адаптивність" (Interface)        | The full app: upload, confidence bars, and the facts tabs.    |
-| `example.png`    | "Шлях користувача" (User journey)              | The *Philodendron bipinnatifidum* result with Pupil + Student facts. |
+Optional additions (from a real app run):
 
-Optional upgrades (add later, from a real app run):
+| File        | Shows                                                       |
+| ----------- | ----------------------------------------------------------- |
+| `demo.gif`  | A short clip: upload a photo → identification + facts appear. |
 
-| File              | What it should show                                                |
-| ----------------- | ------------------------------------------------------------------ |
-| `demo.gif`        | A short clip: upload a photo → identification + facts appear.      |
-| `source-quote.png`| One fact with its "View Source Quote" panel open and the link.     |
+## Image credits / licensing
 
-Notes:
-- Use real plant photographs you are allowed to publish; add credits below
-  when a photo requires attribution.
-- Use real app output. Do not edit confidence numbers by hand.
+The screenshots contain plant (and non-plant) photographs used as test
+inputs. Before publishing the repository, confirm you have the right to
+redistribute each photo, and add credits here where required.
 
-## Image credits
+- Replace any stock photo you are not licensed to publish. (A Shutterstock
+  user-journey image from the thesis deck was intentionally left out of the
+  README for this reason.)
 
 <!-- Example:
-- `example.png` — plant photo by <author>, <source URL>, <license>.
+- `interface.png` — plant photo by <author>, <source URL>, <license>.
 -->
