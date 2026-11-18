@@ -124,10 +124,10 @@ measured on Pl@ntNet-300K + MS COCO.
 | Plant-check precision / recall | 92% / 69% |
 | End-to-end response time       | ~15 s (identification + facts for both audiences) |
 
-¹ Reflects the two-mode display: confident predictions are shown as a
-single top-1 species, while the harder subset is shown as a top-3
-candidate list. Confirm the exact definition against the thesis before
-quoting it elsewhere.
+¹ "Top-3 mode" is the harder subset the app deliberately shows as a
+short top-3 candidate list instead of forcing a single species;
+confident predictions are shown as a single top-1 species. It is not
+the same as standard top-3 accuracy.
 
 The identification backbone is model-limited rather than index-limited: it
 can scale to hundreds of thousands of candidate taxa (≈393,714).
