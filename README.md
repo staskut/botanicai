@@ -11,7 +11,8 @@ two audiences: pupils and students.
 [![UI: Gradio](https://img.shields.io/badge/UI-Gradio-F97316?logo=gradio&logoColor=white)](https://www.gradio.app/)
 [![Model: BioCLIP 2](https://img.shields.io/badge/vision-BioCLIP%202-2e8b57)](https://huggingface.co/imageomics/bioclip-2)
 
-![BotanicAI demonstration](docs/images/demo.gif)
+<!-- A short demo GIF can replace this interface screenshot later. -->
+![BotanicAI interface](docs/images/interface.png)
 
 > Plant identification is probabilistic. Do not use the result to make
 > decisions about edibility, toxicity, medical use, or conservation status.
@@ -35,16 +36,9 @@ two audiences: pupils and students.
 
 **Identification**
 
-| Rank    | Prediction                   | Confidence |
-| ------- | ---------------------------- | ---------- |
-| Species | *Philodendron bipinnatifidum* | `__%`      |
-| Genus   | *Philodendron*               | `__%`      |
-| Family  | Araceae                      | `__%`      |
-
-> Confidence values are produced by the app for each run. Replace `__%`
-> with the real numbers (and a screenshot) from an actual identification —
-> see [`docs/images/README.md`](docs/images/README.md). Numbers are never
-> invented here.
+- Species: *Philodendron bipinnatifidum*
+- Genus: *Philodendron*
+- Family: Araceae
 
 **Pupil explanation**
 
@@ -61,6 +55,8 @@ two audiences: pupils and students.
 In the app, every fact ships with a collapsible **View Source Quote**
 panel and a link back to the source article, so each claim can be checked
 against the text it came from.
+
+![Identification result with Pupil and Student facts](docs/images/example.png)
 
 ---
 
@@ -87,25 +83,54 @@ flowchart TD
 ```
 
 1. **Plant check.** The image embedding is compared against a small set of
-   reference phrases ("a photo of a plant", "a photo of a leaf", ...). If
-   the closest match is not plant-like, the app warns that results may be
-   unreliable.
+   reference phrases ("a photo of a plant", "a photo of a leaf", "a photo
+   of a car", ...). If the closest match is not plant-like, the app warns
+   that results may be unreliable.
 2. **Identification.** [BioCLIP 2](https://huggingface.co/imageomics/bioclip-2)
    encodes the photo, and the embedding is searched (FAISS) against
-   pre-computed species text embeddings to retrieve the top candidates.
-3. **Confidence.** Scores are turned into calibrated species / genus /
-   family confidence using empirical decile tables built from the margin
-   between the top matches — not raw model logits. When the top-1 match is
-   not reliable enough, the app shows a short *"one of"* candidate list
-   instead of a single species.
+   pre-computed species text embeddings to retrieve the closest candidates.
+   Because BioCLIP 2 embeds the full taxonomic hierarchy
+   (kingdom → phylum → class → order → family → genus → species), a confident
+   species match also pins down its genus and family.
+3. **Confidence and candidate selection.** Candidates are ranked by the
+   margin between the top matches (`delta = score₂ − score₁`), which is
+   mapped to calibrated species / genus / family confidence using empirical
+   decile tables rather than raw model logits. Confident cases are shown as
+   a single top-1 species; harder cases are shown as a short top-3 candidate
+   list, which keeps the answer honest instead of forcing one label.
 4. **Facts (RAG).** The predicted name is looked up in a local knowledge
    base, falling back species → genus → family so there is always relevant
    context. [Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) (run
    locally via [MLX](https://github.com/ml-explore/mlx)) is constrained to
-   write a few short facts, each with a supporting quote drawn only from
-   the retrieved text.
+   write at most three short facts, each with a supporting quote drawn only
+   from the retrieved text.
 5. **Audience adaptation.** The same context is re-prompted for the Pupil
    or Student tab.
+
+---
+
+## Performance
+
+Measured in the project's evaluation. Identification is benchmarked on
+**Pl@ntNet-300K** (1,019 species classes); the plant-check validation is
+measured on Pl@ntNet-300K + MS COCO.
+
+| Metric                         | Result |
+| ------------------------------ | ------ |
+| Species accuracy (top-1)       | 78.8%  |
+| Species accuracy (top-3 mode)¹ | 71.5%  |
+| Genus accuracy                 | 86.3%  |
+| Family accuracy                | 94.5%  |
+| Plant-check precision / recall | 92% / 69% |
+| End-to-end response time       | ~15 s (identification + facts for both audiences) |
+
+¹ Reflects the two-mode display: confident predictions are shown as a
+single top-1 species, while the harder subset is shown as a top-3
+candidate list. Confirm the exact definition against the thesis before
+quoting it elsewhere.
+
+The identification backbone is model-limited rather than index-limited: it
+can scale to hundreds of thousands of candidate taxa (≈393,714).
 
 ---
 
@@ -119,10 +144,15 @@ flowchart TD
 | Reference images   | [Pl@ntNet-300K](https://zenodo.org/record/4726653)                     | per-image (varies) |
 | Fact text          | [Wikipedia](https://www.wikipedia.org/)                                | CC BY-SA 4.0     |
 
-Full details and attribution are in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Model weights, datasets,
-photographs, and generated indexes remain subject to their original terms
-and are **not** covered by this project's license.
+- **BioCLIP 2** is pre-trained on the TreeOfLife-200M dataset
+  (~214M images across 952,257 taxa), which is why it generalises across
+  the plant tree of life rather than a fixed class list.
+- **Fact text** is a local Wikipedia-derived knowledge base of ~10,184
+  articles; each generated fact quotes and links back to its source.
+
+Full attribution is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Model weights, datasets, photographs, and generated indexes remain subject
+to their original terms and are **not** covered by this project's license.
 
 ---
 

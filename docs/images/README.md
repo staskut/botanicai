@@ -1,23 +1,29 @@
 # Images for the README
 
-Drop the following files here. The main README already references
-`docs/images/demo.gif`.
+The README references two images. Export them from the thesis
+presentation (full resolution) and save them here with these exact names.
+Export a slide via **File → Download → PNG image** in Google Slides, then
+crop to the English app UI if you want to drop the Ukrainian slide title.
 
-| File                   | What it should show                                                      |
-| ---------------------- | ------------------------------------------------------------------------ |
-| `demo.gif`             | A short clip: upload a photo → identification + facts appear.            |
-| `identification.png`   | Full screenshot of the identification screen.                            |
-| `confidence.png`       | Close screenshot of the species / genus / family confidence bars.        |
-| `pupil-vs-student.png` | The Pupil and Student tabs side by side (or two stacked screenshots).    |
-| `source-quote.png`     | One fact with its "View Source Quote" panel open and the source link.    |
+| File             | Source slide                                   | What it should show                                           |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------------------- |
+| `interface.png`  | "Інтерфейс та адаптивність" (Interface)        | The full app: upload, confidence bars, and the facts tabs.    |
+| `example.png`    | "Шлях користувача" (User journey)              | The *Philodendron bipinnatifidum* result with Pupil + Student facts. |
+
+Optional upgrades (add later, from a real app run):
+
+| File              | What it should show                                                |
+| ----------------- | ------------------------------------------------------------------ |
+| `demo.gif`        | A short clip: upload a photo → identification + facts appear.      |
+| `source-quote.png`| One fact with its "View Source Quote" panel open and the link.     |
 
 Notes:
-- Use real plant photographs you are allowed to publish, and add image
-  credits here when a photo requires attribution.
+- Use real plant photographs you are allowed to publish; add credits below
+  when a photo requires attribution.
 - Use real app output. Do not edit confidence numbers by hand.
 
 ## Image credits
 
 <!-- Example:
-- `identification.png` — plant photo by <author>, <source URL>, <license>.
+- `example.png` — plant photo by <author>, <source URL>, <license>.
 -->
