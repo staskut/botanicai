@@ -11,7 +11,10 @@ two audiences: pupils and students.
 [![UI: Gradio](https://img.shields.io/badge/UI-Gradio-F97316?logo=gradio&logoColor=white)](https://www.gradio.app/)
 [![Model: BioCLIP 2](https://img.shields.io/badge/vision-BioCLIP%202-2e8b57)](https://huggingface.co/imageomics/bioclip-2)
 
-![BotanicAI demonstration](docs/images/demo.gif)
+📊 **Project presentation (thesis defense deck, in Ukrainian):**
+[Google Slides](https://docs.google.com/presentation/d/15Xaz3Qu5zebKfRaUssV9-fovg3xX1jLjhyV707CwozI/edit)
+
+![BotanicAI identifying Pelargonium graveolens](docs/images/interface.png)
 
 > Plant identification is probabilistic. Do not use the result to make
 > decisions about edibility, toxicity, medical use, or conservation status.
@@ -31,36 +34,35 @@ two audiences: pupils and students.
 
 ## Example
 
-**Input:** Photograph of *Philodendron bipinnatifidum*
+**Input:** Photograph of *Pelargonium graveolens* (leaf)
 
-**Identification**
+**Identification** (real app output)
 
-| Rank    | Prediction                   | Confidence |
-| ------- | ---------------------------- | ---------- |
-| Species | *Philodendron bipinnatifidum* | `__%`      |
-| Genus   | *Philodendron*               | `__%`      |
-| Family  | Araceae                      | `__%`      |
-
-> Confidence values are produced by the app for each run. Replace `__%`
-> with the real numbers (and a screenshot) from an actual identification —
-> see [`docs/images/README.md`](docs/images/README.md). Numbers are never
-> invented here.
+- Species: *Pelargonium graveolens* — 61%
+- Genus: *Pelargonium* — 88%
+- Family: Geraniaceae — 96%
 
 **Pupil explanation**
 
-> **It has its own "built-in heater."** This plant can actually warm itself
-> up — it burns energy to raise its own temperature, which helps attract
-> the insects that pollinate it.
+> **This plant is a native of southern Africa, not just one country.**
+> *Source quote:* "Pelargonium graveolens is a Pelargonium species native
+> to the Cape Provinces and the Northern Provinces of South Africa,
+> Zimbabwe and Mozambique."
 
 **Student explanation**
 
-> **Thermogenic metabolism.** *Philodendron bipinnatifidum* is thermogenic:
-> its inflorescence oxidises lipids to generate heat, a rare trait among
-> vascular plants that increases volatile emission and attracts pollinators.
+> **The etymology of *Pelargonium graveolens* derives from the Greek word
+> *pelargos* (stork) and the Latin *graveolens*, highlighting the plant's
+> potent aromatic leaves.** *Source quote:* "The specific epithet
+> graveolens refers to the strong-smelling leaves."
 
-In the app, every fact ships with a collapsible **View Source Quote**
-panel and a link back to the source article, so each claim can be checked
-against the text it came from.
+Every fact ships with a collapsible **View Source Quote** panel and a link
+back to the source article, so each claim can be checked against the text
+it came from.
+
+| Pupil tab | Student tab |
+| --------- | ----------- |
+| ![Pupil facts](docs/images/pupil.png) | ![Student facts](docs/images/student.png) |
 
 ---
 
@@ -86,26 +88,65 @@ flowchart TD
     D --> E[Pupil or Student explanation<br/>Qwen3.5-2B]
 ```
 
-1. **Plant check.** The image embedding is compared against a small set of
-   reference phrases ("a photo of a plant", "a photo of a leaf", ...). If
-   the closest match is not plant-like, the app warns that results may be
-   unreliable.
-2. **Identification.** [BioCLIP 2](https://huggingface.co/imageomics/bioclip-2)
-   encodes the photo, and the embedding is searched (FAISS) against
-   pre-computed species text embeddings to retrieve the top candidates.
-3. **Confidence.** Scores are turned into calibrated species / genus /
-   family confidence using empirical decile tables built from the margin
-   between the top matches — not raw model logits. When the top-1 match is
-   not reliable enough, the app shows a short *"one of"* candidate list
-   instead of a single species.
-4. **Facts (RAG).** The predicted name is looked up in a local knowledge
-   base, falling back species → genus → family so there is always relevant
-   context. [Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) (run
-   locally via [MLX](https://github.com/ml-explore/mlx)) is constrained to
-   write a few short facts, each with a supporting quote drawn only from
-   the retrieved text.
-5. **Audience adaptation.** The same context is re-prompted for the Pupil
-   or Student tab.
+**1. Plant check.** The image embedding is compared against a small set of
+reference phrases ("a photo of a plant", "a photo of a leaf", "a photo of
+a car", ...). If the closest match is not plant-like, the app warns that
+results may be unreliable.
+
+![Plant check warning on a non-plant photo](docs/images/plant-check.png)
+
+**2. Identification.** [BioCLIP 2](https://huggingface.co/imageomics/bioclip-2)
+encodes the photo, and the embedding is searched (FAISS) against
+pre-computed species text embeddings to retrieve the closest candidates.
+Because BioCLIP 2 embeds the full taxonomic hierarchy
+(kingdom → phylum → class → order → family → genus → species), a confident
+species match also pins down its genus and family.
+
+**3. Confidence and candidate selection.** Candidates are ranked by the
+margin between the top matches (`delta = score₂ − score₁`), which is mapped
+to calibrated species / genus / family confidence using empirical decile
+tables rather than raw model logits. Confident cases are shown as a single
+top-1 species; harder, ambiguous cases are shown as a short top-3 candidate
+list, which keeps the answer honest instead of forcing one label.
+
+| Confident → single species | Ambiguous → top-3 candidate list |
+| -------------------------- | -------------------------------- |
+| ![Species identified with confidence bars](docs/images/confidence-species.png) | ![Top-3 "one of" candidate list](docs/images/confidence-top3.png) |
+
+**4. Facts (RAG).** The predicted name is looked up in a local knowledge
+base, falling back species → genus → family so there is always relevant
+context. [Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) (run locally
+via [MLX](https://github.com/ml-explore/mlx)) is constrained to write at
+most three short facts, each with a supporting quote drawn only from the
+retrieved text.
+
+**5. Audience adaptation.** The same context is re-prompted for the Pupil
+or Student tab.
+
+---
+
+## Performance
+
+Measured in the project's evaluation ([slides](https://docs.google.com/presentation/d/15Xaz3Qu5zebKfRaUssV9-fovg3xX1jLjhyV707CwozI/edit)).
+Identification is benchmarked on **Pl@ntNet-300K** (1,019 species classes);
+the plant-check validation is measured on Pl@ntNet-300K + MS COCO.
+
+| Metric                         | Result |
+| ------------------------------ | ------ |
+| Species accuracy (top-1)       | 78.8%  |
+| Species accuracy (top-3 mode)¹ | 71.5%  |
+| Genus accuracy                 | 86.3%  |
+| Family accuracy                | 94.5%  |
+| Plant-check precision / recall | 92% / 69% |
+| End-to-end response time       | ~15 s (identification + facts for both audiences) |
+
+¹ "Top-3 mode" is the harder subset the app deliberately shows as a
+short top-3 candidate list instead of forcing a single species;
+confident predictions are shown as a single top-1 species. It is not
+the same as standard top-3 accuracy.
+
+The identification backbone is model-limited rather than index-limited: it
+can scale to hundreds of thousands of candidate taxa (≈393,714).
 
 ---
 
@@ -119,10 +160,15 @@ flowchart TD
 | Reference images   | [Pl@ntNet-300K](https://zenodo.org/record/4726653)                     | per-image (varies) |
 | Fact text          | [Wikipedia](https://www.wikipedia.org/)                                | CC BY-SA 4.0     |
 
-Full details and attribution are in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Model weights, datasets,
-photographs, and generated indexes remain subject to their original terms
-and are **not** covered by this project's license.
+- **BioCLIP 2** is pre-trained on the TreeOfLife-200M dataset
+  (~214M images across 952,257 taxa), which is why it generalises across
+  the plant tree of life rather than a fixed class list.
+- **Fact text** is a local Wikipedia-derived knowledge base of ~10,184
+  articles; each generated fact quotes and links back to its source.
+
+Full attribution is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Model weights, datasets, photographs, and generated indexes remain subject
+to their original terms and are **not** covered by this project's license.
 
 ---
 
@@ -184,7 +230,7 @@ botanicai/
 │   └── populate_database.py       # Build the Wikipedia knowledge base
 ├── gbif_explore.ipynb             # GBIF taxonomy exploration
 ├── data/                          # Generated artifacts (gitignored)
-├── docs/images/                   # Screenshots + demo GIF
+├── docs/images/                   # App screenshots
 ├── requirements.txt
 ├── LICENSE                        # Apache License 2.0
 └── THIRD_PARTY_NOTICES.md         # Model, dataset, and text attributions

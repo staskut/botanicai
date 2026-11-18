@@ -1,23 +1,32 @@
 # Images for the README
 
-Drop the following files here. The main README already references
-`docs/images/demo.gif`.
+Real app screenshots used by the main README.
 
-| File                   | What it should show                                                      |
-| ---------------------- | ------------------------------------------------------------------------ |
-| `demo.gif`             | A short clip: upload a photo → identification + facts appear.            |
-| `identification.png`   | Full screenshot of the identification screen.                            |
-| `confidence.png`       | Close screenshot of the species / genus / family confidence bars.        |
-| `pupil-vs-student.png` | The Pupil and Student tabs side by side (or two stacked screenshots).    |
-| `source-quote.png`     | One fact with its "View Source Quote" panel open and the source link.    |
+| File                     | Shows                                                              |
+| ------------------------ | ----------------------------------------------------------------- |
+| `interface.png`          | Full app: upload + species/genus/family confidence bars.          |
+| `confidence-species.png` | A confident identification shown as a single top-1 species.       |
+| `confidence-top3.png`    | An ambiguous case shown as a top-3 "one of" candidate list.       |
+| `plant-check.png`        | The "bad photo" warning when the image is not a plant.            |
+| `pupil.png`              | The Pupil facts tab with "View Source Quote" panels and a link.   |
+| `student.png`            | The Student facts tab with "View Source Quote" panels and a link. |
 
-Notes:
-- Use real plant photographs you are allowed to publish, and add image
-  credits here when a photo requires attribution.
-- Use real app output. Do not edit confidence numbers by hand.
+Optional additions (from a real app run):
 
-## Image credits
+| File        | Shows                                                       |
+| ----------- | ----------------------------------------------------------- |
+| `demo.gif`  | A short clip: upload a photo → identification + facts appear. |
+
+## Image credits / licensing
+
+The screenshots contain plant (and non-plant) photographs used as test
+inputs. Before publishing the repository, confirm you have the right to
+redistribute each photo, and add credits here where required.
+
+- Replace any stock photo you are not licensed to publish. (A Shutterstock
+  user-journey image from the thesis deck was intentionally left out of the
+  README for this reason.)
 
 <!-- Example:
-- `identification.png` — plant photo by <author>, <source URL>, <license>.
+- `interface.png` — plant photo by <author>, <source URL>, <license>.
 -->
